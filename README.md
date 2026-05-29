@@ -297,11 +297,13 @@ O sistema de criação de personagem possui estrutura para:
 
 ### Tela Inicial
 
-Adicionar print aqui.
+<img width="1672" height="941" alt="ChatGPT Image 29 de mai  de 2026, 00_03_28" src="https://github.com/user-attachments/assets/b577c543-740c-45a4-b2d4-f2d34d4cf212" />
+
 
 ### Criação de Personagem
 
-Adicionar print aqui.
+<img width="1672" height="941" alt="ChatGPT Image 29 de mai  de 2026, 00_09_37" src="https://github.com/user-attachments/assets/e319cc66-72d2-4c5b-9d7f-5cdcaa9eacb8" />
+
 
 ### Combate Tático
 
