@@ -58,11 +58,13 @@ precision mediump float;
 in vec2 fragUV;
 
 uniform sampler2D uTexture;
+uniform float uAlpha;
 
 out vec4 outColor;
 
 void main() {
     outColor = texture(uTexture, fragUV);
+    outColor.a *= uAlpha;
 }
 )fragment";
 
@@ -98,6 +100,7 @@ Renderer::~Renderer() {
         eglTerminate(display_);
         display_ = EGL_NO_DISPLAY;
     }
+    cleanupAudio();
 }
 
 void Renderer::render() {
@@ -105,6 +108,32 @@ void Renderer::render() {
     // using immersive mode as you'll get no other notification that your renderable area has
     // changed.
     updateRenderArea();
+
+    // Calculate delta time
+    auto currentTime = std::chrono::steady_clock::now();
+    float deltaTime = std::chrono::duration<float>(currentTime - lastFrameTime_).count();
+    lastFrameTime_ = currentTime;
+
+    // Update fade
+    const float fadeSpeed = 2.0f; // Seconds to complete fade
+    if (isFadingOut_) {
+        fadeAlpha_ -= deltaTime * fadeSpeed;
+        if (fadeAlpha_ <= 0.0f) {
+            fadeAlpha_ = 0.0f;
+            isFadingOut_ = false;
+            // Execute the delayed state change
+            if (pendingState_ == GameState::CHARACTER_CREATION) {
+                startNativeActivity("com.example.taticasdodestino.CreationActivity");
+            } else if (pendingState_ == GameState::LOAD_GAME) {
+                startNativeActivity("com.example.taticasdodestino.LoadActivity");
+            } else if (pendingState_ == GameState::TITLE_SCREEN) {
+                startNativeActivity("com.example.taticasdodestino.MainActivity");
+            }
+        }
+    } else if (fadeAlpha_ < 1.0f) {
+        fadeAlpha_ += deltaTime * fadeSpeed;
+        if (fadeAlpha_ > 1.0f) fadeAlpha_ = 1.0f;
+    }
 
     // When the renderable area changes, the projection matrix has to also be updated. This is true
     // even if you change from the sample orthographic projection matrix as your aspect ratio has
@@ -132,6 +161,9 @@ void Renderer::render() {
 
     // clear the color buffer
     glClear(GL_COLOR_BUFFER_BIT);
+
+    // Set transparency
+    glUniform1f(glGetUniformLocation(shader_->getProgram(), "uAlpha"), fadeAlpha_);
 
     // Render all the models. There's no depth testing in this sample so they're accepted in the
     // order provided. But the sample EGL setup requests a 24 bit depth buffer so you could
@@ -237,6 +269,7 @@ void Renderer::initRenderer() {
 
     // get some demo models into memory
     createModels();
+    initAudio();
 }
 
 void Renderer::updateRenderArea() {
@@ -251,6 +284,9 @@ void Renderer::updateRenderArea() {
         height_ = height;
         glViewport(0, 0, width, height);
 
+        // Recreate models to match the new aspect ratio (important for full-screen images)
+        createModels();
+
         // make sure that we lazily recreate the projection matrix before we render
         shaderNeedsNewProjectionMatrix_ = true;
     }
@@ -260,33 +296,212 @@ void Renderer::updateRenderArea() {
  * @brief Create any demo models we want for this demo.
  */
 void Renderer::createModels() {
-    /*
-     * This is a square:
-     * 0 --- 1
-     * | \   |
-     * |  \  |
-     * |   \ |
-     * 3 --- 2
-     */
-    std::vector<Vertex> vertices = {
-            Vertex(Vector3{1, 1, 0}, Vector2{0, 0}), // 0
-            Vertex(Vector3{-1, 1, 0}, Vector2{1, 0}), // 1
-            Vertex(Vector3{-1, -1, 0}, Vector2{1, 1}), // 2
-            Vertex(Vector3{1, -1, 0}, Vector2{0, 1}) // 3
-    };
-    std::vector<Index> indices = {
-            0, 1, 2, 0, 2, 3
-    };
-
-    // loads an image and assigns it to the square.
-    //
-    // Note: there is no texture management in this sample, so if you reuse an image be careful not
-    // to load it repeatedly. Since you get a shared_ptr you can safely reuse it in many models.
     auto assetManager = app_->activity->assetManager;
-    auto spAndroidRobotTexture = TextureAsset::loadAsset(assetManager, "android_robot.png");
+    models_.clear();
 
-    // Create a model and put it in the back of the render list.
-    models_.emplace_back(vertices, indices, spAndroidRobotTexture);
+    std::string assetName;
+    if (currentState_ == GameState::TITLE_SCREEN) {
+        assetName = "Tela_inicial.png";
+    } else if (currentState_ == GameState::CHARACTER_CREATION) {
+        assetName = "Tela_Criação.png";
+    } else if (currentState_ == GameState::LOAD_GAME) {
+        // Use o nome exato do arquivo que você salvou nos assets
+        assetName = "Tela_Continuar.png";
+    }
+
+    // Load the appropriate image based on game state
+    auto spTex = TextureAsset::loadAsset(assetManager, assetName);
+
+    /* Full Screen Quad */
+    // Forçamos o quad a preencher a tela inteira ignorando a proporção da imagem original
+    // para que ela estique e ocupe todo o fundo azul que você viu.
+    float aspectRatio = float(width_) / height_;
+    float halfWidth = aspectRatio * kProjectionHalfHeight;
+
+    std::vector<Vertex> bgVertices = {
+            Vertex(Vector3{-halfWidth, kProjectionHalfHeight, 0}, Vector2{0, 0}),
+            Vertex(Vector3{halfWidth, kProjectionHalfHeight, 0}, Vector2{1, 0}),
+            Vertex(Vector3{halfWidth, -kProjectionHalfHeight, 0}, Vector2{1, 1}),
+            Vertex(Vector3{-halfWidth, -kProjectionHalfHeight, 0}, Vector2{0, 1})
+    };
+    std::vector<Index> indices = {0, 1, 2, 0, 2, 3};
+    models_.emplace_back(bgVertices, indices, spTex);
+}
+
+void Renderer::changeState(GameState newState) {
+    if (isFadingOut_) return; // Already transitioning
+
+    playClickSound();
+
+    // Start Fade Out transition
+    isFadingOut_ = true;
+    pendingState_ = newState;
+}
+
+void Renderer::determineInitialState() {
+    JNIEnv* env;
+    app_->activity->vm->AttachCurrentThread(&env, nullptr);
+
+    jclass activityClass = env->GetObjectClass(app_->activity->javaGameActivity);
+    jclass classClass = env->FindClass("java/lang/Class");
+    jmethodID getNameMethod = env->GetMethodID(classClass, "getName", "()Ljava/lang/String;");
+    jstring nameString = (jstring)env->CallObjectMethod(activityClass, getNameMethod);
+
+    const char* name = env->GetStringUTFChars(nameString, nullptr);
+    aout << "Started with Activity: " << name << std::endl;
+
+    if (strstr(name, "CreationActivity")) {
+        currentState_ = GameState::CHARACTER_CREATION;
+    } else if (strstr(name, "LoadActivity")) {
+        currentState_ = GameState::LOAD_GAME;
+    } else {
+        currentState_ = GameState::TITLE_SCREEN;
+    }
+
+    env->ReleaseStringUTFChars(nameString, name);
+    app_->activity->vm->DetachCurrentThread();
+}
+
+void Renderer::startNativeActivity(const char* activityClassName) {
+    JNIEnv* env;
+    app_->activity->vm->AttachCurrentThread(&env, nullptr);
+
+    // Get the class of the current activity
+    jobject activityObj = app_->activity->javaGameActivity;
+    jclass activityClass = env->GetObjectClass(activityObj);
+
+    // Get the ClassLoader of the current activity
+    jclass classClass = env->FindClass("java/lang/Class");
+    jmethodID getClassLoaderMethod = env->GetMethodID(classClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
+    jobject classLoaderObj = env->CallObjectMethod(activityClass, getClassLoaderMethod);
+
+    // Get the loadClass method from the ClassLoader
+    jclass classLoaderClass = env->FindClass("java/lang/ClassLoader");
+    jmethodID loadClassMethod = env->GetMethodID(classLoaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+
+    // Load the target activity class using the app's ClassLoader
+    jstring classNameString = env->NewStringUTF(activityClassName);
+    jclass targetActivityClass = (jclass)env->CallObjectMethod(classLoaderObj, loadClassMethod, classNameString);
+
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        aout << "Failed to load class: " << activityClassName << std::endl;
+        app_->activity->vm->DetachCurrentThread();
+        return;
+    }
+
+    // Create the Intent
+    jclass intentClass = env->FindClass("android/content/Intent");
+    jmethodID intentConstructor = env->GetMethodID(intentClass, "<init>", "(Landroid/content/Context;Ljava/lang/Class;)V");
+    jobject intent = env->NewObject(intentClass, intentConstructor, activityObj, targetActivityClass);
+
+    // Start the Activity
+    jclass contextClass = env->FindClass("android/content/Context");
+    jmethodID startActivityMethod = env->GetMethodID(contextClass, "startActivity", "(Landroid/content/Intent;)V");
+    env->CallVoidMethod(activityObj, startActivityMethod, intent);
+
+    app_->activity->vm->DetachCurrentThread();
+}
+
+void Renderer::initAudio() {
+    SLresult result;
+
+    // create engine
+    result = slCreateEngine(&engineObject_, 0, nullptr, 0, nullptr, nullptr);
+    if (SL_RESULT_SUCCESS != result) return;
+    result = (*engineObject_)->Realize(engineObject_, SL_BOOLEAN_FALSE);
+    if (SL_RESULT_SUCCESS != result) return;
+    result = (*engineObject_)->GetInterface(engineObject_, SL_IID_ENGINE, &engineEngine_);
+    if (SL_RESULT_SUCCESS != result) return;
+
+    // create output mix
+    result = (*engineEngine_)->CreateOutputMix(engineEngine_, &outputMixObject_, 0, nullptr, nullptr);
+    if (SL_RESULT_SUCCESS != result) return;
+    result = (*outputMixObject_)->Realize(outputMixObject_, SL_BOOLEAN_FALSE);
+    if (SL_RESULT_SUCCESS != result) return;
+
+    // configure audio source (using assets)
+    AAssetManager* assetManager = app_->activity->assetManager;
+    AAsset* asset = AAssetManager_open(assetManager, "Cliques.wav", AASSET_MODE_UNKNOWN);
+    if (asset == nullptr) return;
+
+    off_t start, length;
+    int fd = AAsset_openFileDescriptor(asset, &start, &length);
+    AAsset_close(asset);
+
+    SLDataLocator_AndroidFD loc_fd = {SL_DATALOCATOR_ANDROIDFD, fd, start, length};
+    SLDataFormat_MIME format_mime = {SL_DATAFORMAT_MIME, nullptr, SL_CONTAINERTYPE_UNSPECIFIED};
+    SLDataSource audioSrc = {&loc_fd, &format_mime};
+
+    // configure audio sink
+    SLDataLocator_OutputMix loc_outmix = {SL_DATALOCATOR_OUTPUTMIX, outputMixObject_};
+    SLDataSink audioSnk = {&loc_outmix, nullptr};
+
+    // create audio player
+    const SLInterfaceID ids[2] = {SL_IID_PLAY, SL_IID_SEEK};
+    const SLboolean req[2] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
+    result = (*engineEngine_)->CreateAudioPlayer(engineEngine_, &clickPlayerObject_, &audioSrc, &audioSnk, 2, ids, req);
+    if (SL_RESULT_SUCCESS != result) return;
+    result = (*clickPlayerObject_)->Realize(clickPlayerObject_, SL_BOOLEAN_FALSE);
+    if (SL_RESULT_SUCCESS != result) return;
+    result = (*clickPlayerObject_)->GetInterface(clickPlayerObject_, SL_IID_PLAY, &clickPlayerPlay_);
+    if (SL_RESULT_SUCCESS != result) return;
+    result = (*clickPlayerObject_)->GetInterface(clickPlayerObject_, SL_IID_SEEK, &clickPlayerSeek_);
+    if (SL_RESULT_SUCCESS != result) return;
+
+    // --- Background Music (BGM) Configuration ---
+    AAsset* bgmAsset = AAssetManager_open(assetManager, "Tema1.mp3", AASSET_MODE_UNKNOWN);
+    if (bgmAsset != nullptr) {
+        off_t bgmStart, bgmLength;
+        int bgmFd = AAsset_openFileDescriptor(bgmAsset, &bgmStart, &bgmLength);
+        AAsset_close(bgmAsset);
+
+        SLDataLocator_AndroidFD bgmLoc_fd = {SL_DATALOCATOR_ANDROIDFD, bgmFd, bgmStart, bgmLength};
+        SLDataFormat_MIME bgmFormat_mime = {SL_DATAFORMAT_MIME, nullptr, SL_CONTAINERTYPE_UNSPECIFIED};
+        SLDataSource bgmSrc = {&bgmLoc_fd, &bgmFormat_mime};
+
+        result = (*engineEngine_)->CreateAudioPlayer(engineEngine_, &bgmPlayerObject_, &bgmSrc, &audioSnk, 2, ids, req);
+        if (SL_RESULT_SUCCESS == result) {
+            (*bgmPlayerObject_)->Realize(bgmPlayerObject_, SL_BOOLEAN_FALSE);
+            (*bgmPlayerObject_)->GetInterface(bgmPlayerObject_, SL_IID_PLAY, &bgmPlayerPlay_);
+            (*bgmPlayerObject_)->GetInterface(bgmPlayerObject_, SL_IID_SEEK, &bgmPlayerSeek_);
+
+            if (bgmPlayerPlay_ != nullptr && bgmPlayerSeek_ != nullptr) {
+                // Set Looping
+                (*bgmPlayerSeek_)->SetLoop(bgmPlayerSeek_, SL_BOOLEAN_TRUE, 0, SL_TIME_UNKNOWN);
+                // Start Playing
+                (*bgmPlayerPlay_)->SetPlayState(bgmPlayerPlay_, SL_PLAYSTATE_PLAYING);
+            }
+        }
+    }
+}
+
+void Renderer::cleanupAudio() {
+    if (bgmPlayerObject_ != nullptr) {
+        (*bgmPlayerObject_)->Destroy(bgmPlayerObject_);
+        bgmPlayerObject_ = nullptr;
+    }
+    if (clickPlayerObject_ != nullptr) {
+        (*clickPlayerObject_)->Destroy(clickPlayerObject_);
+        clickPlayerObject_ = nullptr;
+    }
+    if (outputMixObject_ != nullptr) {
+        (*outputMixObject_)->Destroy(outputMixObject_);
+        outputMixObject_ = nullptr;
+    }
+    if (engineObject_ != nullptr) {
+        (*engineObject_)->Destroy(engineObject_);
+        engineObject_ = nullptr;
+    }
+}
+
+void Renderer::playClickSound() {
+    if (clickPlayerPlay_ != nullptr && clickPlayerSeek_ != nullptr) {
+        (*clickPlayerPlay_)->SetPlayState(clickPlayerPlay_, SL_PLAYSTATE_STOPPED);
+        (*clickPlayerSeek_)->SetPosition(clickPlayerSeek_, 0, SL_SEEKMODE_FAST);
+        (*clickPlayerPlay_)->SetPlayState(clickPlayerPlay_, SL_PLAYSTATE_PLAYING);
+    }
 }
 
 void Renderer::handleInput() {
@@ -312,13 +527,71 @@ void Renderer::handleInput() {
         auto x = GameActivityPointerAxes_getX(&pointer);
         auto y = GameActivityPointerAxes_getY(&pointer);
 
+        // Convert screen coordinates to world coordinates
+        float worldX = (x / (float)width_ * 2.0f - 1.0f) * ((float)width_ / height_ * kProjectionHalfHeight);
+        float worldY = (1.0f - y / (float)height_ * 2.0f) * kProjectionHalfHeight;
+
         // determine the action type and process the event accordingly.
         switch (action & AMOTION_EVENT_ACTION_MASK) {
             case AMOTION_EVENT_ACTION_DOWN:
-            case AMOTION_EVENT_ACTION_POINTER_DOWN:
-                aout << "(" << pointer.id << ", " << x << ", " << y << ") "
-                     << "Pointer Down";
+            case AMOTION_EVENT_ACTION_POINTER_DOWN: {
+                aout << "Touch at World: (" << worldX << ", " << worldY << ")" << std::endl;
+
+                // Proporções baseadas na largura da tela
+                float halfWidth = ((float)width_ / height_ * kProjectionHalfHeight);
+
+                // Zonas de toque recalibradas
+                if (currentState_ == GameState::TITLE_SCREEN) {
+                    // Botões no lado direito
+                    if (worldX > halfWidth * 0.2f) {
+                        // NOVO JOGO
+                        if (worldY < 0.3f && worldY > -0.1f) {
+                            aout << "Clicked: NOVO JOGO" << std::endl;
+                            changeState(GameState::CHARACTER_CREATION);
+                        }
+                        // CONTINUAR
+                        else if (worldY < -0.3f && worldY > -0.7f) {
+                            aout << "Clicked: CONTINUAR" << std::endl;
+                            changeState(GameState::LOAD_GAME);
+                        }
+                        // OPÇÕES
+                        else if (worldY < -0.9f && worldY > -1.3f) {
+                            aout << "Clicked: OPÇÕES" << std::endl;
+                            playClickSound();
+                        }
+                        // SAIR
+                        else if (worldY < -1.5f && worldY > -1.9f) {
+                            aout << "Clicked: SAIR" << std::endl;
+                            playClickSound();
+                        }
+                    }
+                } else if (currentState_ == GameState::CHARACTER_CREATION) {
+                    // --- TELA DE MONTAGEM DE PERSONAGEM ---
+                    // Botão VOLTAR (Expandido e deslocado levemente para a direita para alinhar com o visual)
+                    if (worldX < 0.0f && worldX > -1.5f && worldY < -1.3f) {
+                        aout << "Clicked: VOLTAR" << std::endl;
+                        changeState(GameState::TITLE_SCREEN);
+                    }
+                    // Botão ALEATÓRIO (MEIO inferior)
+                    else if (worldX >= 0.0f && worldX < 1.0f && worldY < -1.3f) {
+                        aout << "Clicked: ALEATÓRIO" << std::endl;
+                        playClickSound();
+                    }
+                    // Botão CONFIRMAR (Canto inferior DIREITO)
+                    else if (worldX >= 1.0f && worldY < -1.3f) {
+                        aout << "Clicked: CONFIRMAR" << std::endl;
+                        playClickSound();
+                    }
+                } else if (currentState_ == GameState::LOAD_GAME) {
+                    // --- TELA DE GRIMÓRIO DE MEMÓRIAS ---
+                    // Botão VOLTAR (Canto inferior DIREITO nesta tela específica)
+                    if (worldX > halfWidth - 2.5f && worldY < -1.4f) {
+                        aout << "Clicked: VOLTAR" << std::endl;
+                        changeState(GameState::TITLE_SCREEN);
+                    }
+                }
                 break;
+            }
 
             case AMOTION_EVENT_ACTION_CANCEL:
                 // treat the CANCEL as an UP event: doing nothing in the app, except

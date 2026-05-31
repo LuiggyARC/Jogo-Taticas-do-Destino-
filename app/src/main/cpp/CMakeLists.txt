@@ -33,4 +33,5 @@ target_link_libraries(taticasdodestino
         GLESv3
         jnigraphics
         android
+        OpenSLES
         log)

@@ -63,6 +63,8 @@ public:
      */
     void setProjectionMatrix(float *projectionMatrix) const;
 
+    GLuint getProgram() const { return program_; }
+
 private:
     /*!
      * Helper function to load a shader of a given type

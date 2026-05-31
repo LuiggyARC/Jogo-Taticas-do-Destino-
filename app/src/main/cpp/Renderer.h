@@ -3,6 +3,9 @@
 
 #include <EGL/egl.h>
 #include <memory>
+#include <SLES/OpenSLES.h>
+#include <SLES/OpenSLES_Android.h>
+#include <chrono>
 
 #include "Model.h"
 #include "Shader.h"
@@ -22,6 +25,7 @@ public:
             width_(0),
             height_(0),
             shaderNeedsNewProjectionMatrix_(true) {
+        determineInitialState();
         initRenderer();
     }
 
@@ -58,12 +62,48 @@ private:
      */
     void createModels();
 
+    enum class GameState {
+        TITLE_SCREEN,
+        CHARACTER_CREATION,
+        LOAD_GAME
+    };
+
+    void changeState(GameState newState);
+
+    void playClickSound();
+
+    void determineInitialState();
+    void startNativeActivity(const char* activityClassName);
+
     android_app *app_;
     EGLDisplay display_;
     EGLSurface surface_;
     EGLContext context_;
     EGLint width_;
     EGLint height_;
+
+    GameState currentState_ = GameState::TITLE_SCREEN;
+
+    // Fade transition members
+    float fadeAlpha_ = 1.0f; // 1.0 = opaque, 0.0 = transparent
+    bool isFadingOut_ = false;
+    GameState pendingState_ = GameState::TITLE_SCREEN;
+    std::chrono::time_point<std::chrono::steady_clock> lastFrameTime_;
+
+    // Audio members
+    SLObjectItf engineObject_ = nullptr;
+    SLEngineItf engineEngine_ = nullptr;
+    SLObjectItf outputMixObject_ = nullptr;
+    SLObjectItf clickPlayerObject_ = nullptr;
+    SLPlayItf clickPlayerPlay_ = nullptr;
+    SLSeekItf clickPlayerSeek_ = nullptr;
+
+    SLObjectItf bgmPlayerObject_ = nullptr;
+    SLPlayItf bgmPlayerPlay_ = nullptr;
+    SLSeekItf bgmPlayerSeek_ = nullptr;
+
+    void initAudio();
+    void cleanupAudio();
 
     bool shaderNeedsNewProjectionMatrix_;
 
