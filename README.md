@@ -189,7 +189,8 @@ Criar uma experiência de RPG tático mobile inspirada em D&D 3.5, focada em:
 
 ## Tela Inicial
 
-<img width="1672" height="941" alt="Tela Inicial" src="https://github.com/user-attachments/assets/b577c543-740c-45a4-b2d4-f2d34d4cf212" />
+<img width="2400" height="1080" alt="Screenshot_20260607_154427" src="https://github.com/user-attachments/assets/f68a4f5b-7a42-4cdb-8982-df32656f7799" />
+
 
 ---
 
@@ -204,6 +205,11 @@ Criar uma experiência de RPG tático mobile inspirada em D&D 3.5, focada em:
 <img width="1672" height="941" alt="Tela_Continuar" src="https://github.com/user-attachments/assets/720ee305-9cd6-4c9f-bf0a-0dee71da93ef" />
 
 ---
+
+## Tela de testes
+
+<img width="2400" height="1080" alt="Screenshot_20260607_160856" src="https://github.com/user-attachments/assets/f47fa79b-ea17-4007-b827-a0ed4eaf6ae7" />
+
 
 # 👨‍💻 Autor
 
