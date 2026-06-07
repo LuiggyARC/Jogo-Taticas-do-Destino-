@@ -1,96 +1,226 @@
 # ⚔️ Táticas do Destino
 
-**Táticas do Destino** é um RPG tático por turnos para Android, inspirado nas mecânicas clássicas de **Dungeons & Dragons 3.5**, combinando combate estratégico em grid, progressão profunda de personagens, inteligência artificial tática e uma campanha original em desenvolvimento.
-
-## 🚀 Atualizações Recentes
-
-### Correções de Estabilidade
-
-- Correção do erro de compilação relacionado ao GameActivity.
-- Adequação ao padrão `javaGameActivity` do Android Game SDK.
-- Correção do crash que ocorria durante a troca de telas.
-- Implementação de carregamento de Activities através do ClassLoader da atividade atual.
-- Maior estabilidade na navegação entre menus e sistemas internos.
-
-### Melhorias de Interface (UX)
-
-- Recalibração completa das áreas de toque com base nas artes finais.
-- Reorganização dos botões da Tela Inicial.
-- Ajuste da tela de Criação de Personagem:
-  - Voltar à esquerda.
-  - Aleatório centralizado.
-  - Confirmar à direita.
-- Ajuste da tela de Carregamento utilizando o layout do Grimório.
-- Implementação de transições suaves Fade In/Fade Out entre telas.
-- Remoção de cortes bruscos e redução de telas pretas durante carregamentos.
-
-### Áudio e Imersão
-
-- Implementação de música ambiente em loop nos menus.
-- Integração do Tema1.mp3 como trilha principal.
-- Compatibilidade entre música de fundo e efeitos sonoros.
-- Manutenção dos sons de clique durante toda a navegação.
-
-### Resultado Atual
-
-O jogo agora apresenta:
-
-- Navegação estável.
-- Troca de telas sem travamentos.
-- Melhor resposta aos toques.
-- Interface mais consistente.
-- Atmosfera mais profissional através de música e transições suaves.
+**Táticas do Destino** é um RPG tático por turnos para Android inspirado nas mecânicas clássicas de **Dungeons & Dragons 3.5**, combinando combate estratégico em grid, progressão profunda de personagens, inteligência artificial tática e uma campanha original em desenvolvimento.
 
 ---
 
-## 🎯 Objetivo do Projeto
+# 🚀 Atualizações Recentes
 
-Criar uma experiência de RPG tático mobile inspirada em D&D 3.5, focada em estratégia, progressão de personagens e combate por turnos.
+## 🔧 Correções Críticas de Infraestrutura (JNI)
 
-## 📊 Status Atual
+### Compatibilidade com Android Games SDK
 
-### Sistemas Implementados
+- Correção do erro de compilação relacionado ao acesso interno da `GameActivity`.
+- Adequação completa ao padrão `javaGameActivity` utilizado pelo Android Games SDK.
+- Ajustes no sistema JNI para garantir compatibilidade entre Kotlin, Java e C++.
 
-- Sistema de atributos e modificadores raciais.
+### Sistema Dinâmico de Carregamento de Telas
+
+- Correção definitiva do crash de `Class Not Found`.
+- Implementação de carregamento dinâmico de Activities via `ClassLoader`.
+- Integração entre o código nativo C++ e o sistema Android de Activities.
+- Agora o motor consegue abrir telas dinamicamente sem conflitos internos.
+
+---
+
+# ⚡ Estabilidade e Performance
+
+## Fim da Tela Preta
+
+- Remoção do efeito de tela preta piscando entre transições.
+- Ajuste do tema Android para modo translúcido.
+- Desativação das animações padrão do sistema Android.
+- Otimização visual para deixar apenas os efeitos cinematográficos do jogo.
+
+## Motor de Áudio Persistente
+
+- Correção do bug de músicas duplicadas.
+- Sistema de música contínua entre menus.
+- `Tema1.mp3` agora permanece ativo sem reiniciar ao trocar de tela.
+- Compatibilidade total entre música de fundo e efeitos sonoros.
+
+---
+
+# 🎨 Interface e Visual (UI/UX)
+
+## Sistema de Fade Cinematográfico
+
+- Implementação de Fade Out e Fade In suaves.
+- Transições com duração aproximada de 0.5 segundos.
+- Navegação mais fluida e profissional.
+- Eliminação de cortes bruscos.
+
+## Menu Dinâmico
+
+### Estrutura Visual
+
+- Logo posicionada no topo direito.
+- Botões ampliados com escala 2.5.
+- Molduras estilizadas.
+- Efeito visual de botão pressionado.
+
+### Sistema de Texto Nativo
+
+- Implementação de renderização nativa para os textos dos botões.
+- Centralização automática dos textos.
+- Melhor compatibilidade visual com diferentes resoluções.
+
+Exemplos:
+
+- NOVO JOGO
+- CONTINUAR
+- CONFIGURAÇÕES
+- SAIR
+
+## Precisão de Toque
+
+- Correção completa da matemática das áreas de clique.
+- Sincronização entre renderização visual e coordenadas de toque.
+- Eliminação de sobreposição invisível entre botões.
+
+---
+
+# 🎮 Modo de Teste (Gameplay Base)
+
+## Sistema de Zoom
+
+- Implementação de zoom automático 2x.
+- Melhor visualização dos sprites.
+- Maior definição visual durante os testes.
+
+## Posicionamento de Personagens
+
+- Ajuste correto da posição do Herói.
+- Ajuste correto da posição dos Monstros.
+- Correção de alinhamento com o solo do mapa.
+- Melhor escala visual dos personagens.
+
+## Barras de Vida Dinâmicas
+
+- Implementação do sistema visual de HP.
+- Barras verdes dinâmicas.
+- Atualização em tempo real.
+- Molduras decorativas para os personagens.
+
+---
+
+# 🧠 Resultado Atual do Projeto
+
+O jogo agora possui:
+
+- Navegação fluida.
+- Sistema estável de transição entre telas.
+- Música persistente.
+- Interface mais profissional.
+- Base sólida para expansão do gameplay.
+- Ambiente pronto para implementação da lógica de combate.
+- Sistema visual mais cinematográfico.
+- Estrutura preparada para movimentação e combate tático.
+
+---
+
+# 🎯 Objetivo do Projeto
+
+Criar uma experiência de RPG tático mobile inspirada em D&D 3.5, focada em:
+
+- Estratégia.
+- Progressão de personagens.
+- Combate em grid.
+- Inteligência artificial.
+- Exploração.
+- Evolução narrativa.
+
+---
+
+# 📊 Status Atual
+
+## Sistemas Implementados
+
+- Sistema de atributos.
 - Classes inspiradas em D&D 3.5.
 - Sistema de talentos.
 - Sistema de magias.
 - Combate tático em grid.
 - IA para inimigos.
-- Progressão de XP.
-- Sistema de equipamentos e loot.
-- Sistema de save/load.
+- Sistema de XP.
+- Sistema de loot.
+- Save/Load.
 - Menus funcionais.
-- Criação de personagem.
 - Música ambiente.
-- Transições entre telas.
+- Fade cinematográfico.
+- Zoom automático.
+- Barras de vida.
+- Sistema JNI integrado.
+- Sistema dinâmico de Activities.
 
-### Próximos Passos
+---
 
-- Integração dos sprites definitivos.
-- Sistema completo de diálogos.
-- Refinamento visual da criação de personagem.
-- Implementação dos mapas jogáveis.
-- Expansão das magias e monstros.
-- Integração dos capítulos da campanha.
+# 🛣️ Próximos Passos
 
-## 📷 Capturas de Tela
+## Curto Prazo
 
-### Tela Inicial
+- Implementação da movimentação tática.
+- Sistema de ataque.
+- Sistema de turnos.
+- Integração dos sprites finais.
+- Sistema de colisão.
+
+## Médio Prazo
+
+- Sistema completo de combate.
+- Magias funcionais.
+- Inventário.
+- Equipamentos.
+- IA avançada.
+- Sistema de quests.
+
+## Longo Prazo
+
+- Campanha completa.
+- Chefes únicos.
+- Expansão de classes.
+- Multiplayer local/testes cooperativos.
+- Sistema de áudio avançado.
+- Expansões futuras.
+
+---
+
+# 📷 Capturas de Tela
+
+## Tela Inicial
 
 <img width="1672" height="941" alt="Tela Inicial" src="https://github.com/user-attachments/assets/b577c543-740c-45a4-b2d4-f2d34d4cf212" />
 
-### Criação de Personagem
+---
+
+## Criação de Personagem
 
 <img width="1672" height="941" alt="Criação de Personagem" src="https://github.com/user-attachments/assets/e319cc66-72d2-4c5b-9d7f-5cdcaa9eacb8" />
 
-### Tela save e load
+---
+
+## Tela Save e Load
 
 <img width="1672" height="941" alt="Tela_Continuar" src="https://github.com/user-attachments/assets/720ee305-9cd6-4c9f-bf0a-0dee71da93ef" />
 
+---
 
-## 👨‍💻 Autor
+# 👨‍💻 Autor
 
-Luiggy Alberto
+## Luiggy Alberto
 
-GitHub: https://github.com/LuiggyARC
+GitHub:
+
+https://github.com/LuiggyARC
+
+---
+
+Projeto desenvolvido como estudo avançado de:
+
+- Desenvolvimento Android.
+- JNI.
+- Renderização 2D.
+- Inteligência Artificial.
+- Arquitetura de jogos.
+- Sistemas de RPG tático.
+- Integração Kotlin + C++.
